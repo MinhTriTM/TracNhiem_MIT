@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSĐ Dashboard - Ultimate Edition (Direct Save)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .option-item { transition: all 0.2s ease-in-out; border-width: 2px; }
+        .option-item:focus-within { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+        .is-answer { background-color: #ecfdf5; border-color: #10b981 !important; }
+        .missing-opt { border-color: #ef4444 !important; background-color: #fef2f2; }
+        .textarea-auto { overflow: hidden; resize: none; min-height: 60px; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Toast Animation */
+        @keyframes slideInUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        .toast-enter { animation: slideInUp 0.3s ease-out forwards; }
+        .toast-exit { animation: fadeOut 0.5s ease-out forwards; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased pb-20">
+    <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm pt-4 pb-4 px-6 mb-8">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">LSĐ Dashboard Pro</h1>
+                <p class="text-slate-500 text-sm font-medium mt-1">Hệ thống Kiểm duyệt & Lưu trực tiếp vào file gốc</p>
+            </div>
+            <div class="flex gap-3 items-center">
+                <select id="filterSelect" onchange="applyFilter(this.value)" class="bg-slate-100 border-none text-slate-700 text-sm rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 font-medium hidden transition-all">
+                    <option value="all">👁️ Hiển thị tất cả</option>
+                    <option value="missing_opt">⚠️ Lọc: Thiếu phương án</option>
+                    <option value="missing_ans">❌ Lọc: Thiếu đáp án</option>
+                </select>
+
+                <button onclick="openFiles()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    Mở Files JSON
+                </button>
+                <button id="exportBtn" onclick="saveToOriginalFiles()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    Lưu Đè (Save)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-6">
+        <div id="statsPanel" class="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-blue-100 text-blue-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
+                <div><p class="text-slate-500 text-sm font-semibold">Tổng số File</p><p id="statFiles" class="text-2xl font-bold text-slate-800">0</p></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                <div><p class="text-slate-500 text-sm font-semibold">Tổng Câu hỏi</p><p id="statQs" class="text-2xl font-bold text-slate-800">0</p></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-red-100 text-red-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></div>
+                <div><p class="text-slate-500 text-sm font-semibold">Thiếu Phương án</p><p id="statMissingOpts" class="text-2xl font-bold text-red-600">0</p></div>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div class="p-3 bg-orange-100 text-orange-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                <div><p class="text-slate-500 text-sm font-semibold">Chưa chọn Đáp án</p><p id="statMissingAns" class="text-2xl font-bold text-orange-600">0</p></div>
+            </div>
+        </div>
+
+        <div id="container" class="space-y-8">
+            <div class="text-center py-24 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center">
+                <div class="p-4 bg-slate-50 rounded-full mb-4">
+                    <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">Chưa có dữ liệu nào được tải lên</h3>
+                <p class="text-slate-500 max-w-md">Vui lòng nhấp vào nút "Mở Files JSON" ở góc trên bên phải. <br><span class="text-red-500 font-medium">Lưu ý:</span> Tính năng này yêu cầu chạy file HTML qua Local Server (VD: Live Server trong VS Code) thay vì mở trực tiếp file:///</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <script>
+        let allData = {}; 
+        let fileHandles = {}; // Lưu giữ quyền truy cập file gốc
+        let currentFilter = 'all';
+
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-emerald-600' : 'bg-red-500';
+            
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg font-medium text-sm flex items-center gap-2 toast-enter`;
+            toast.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                ${message}
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.replace('toast-enter', 'toast-exit');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        async function openFiles() {
+            try {
+                const handles = await window.showOpenFilePicker({
+                    multiple: true,
+                    types: [{
+                        description: 'JSON Files',
+                        accept: { 'application/json': ['.json'] }
+                    }]
+                });
+
+                allData = {};
+                fileHandles = {};
+                document.getElementById('container').innerHTML = "";
+                document.getElementById('statsPanel').classList.remove('hidden');
+                document.getElementById('filterSelect').classList.remove('hidden');
+                document.getElementById('filterSelect').classList.add('inline-block');
+                
+                const exportBtn = document.getElementById('exportBtn');
+                exportBtn.disabled = false;
+                exportBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                for (const handle of handles) {
+                    const file = await handle.getFile();
+                    const text = await file.text();
+                    const json = JSON.parse(text);
+                    
+                    allData[file.name] = json.questions || [];
+                    fileHandles[file.name] = handle;
+                }
+                
+                updateStatsAndRender();
+                showToast(`Đã mở thành công ${handles.length} files!`);
+                
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    showToast(`Lỗi mở file. Hãy chắc chắn bạn đang chạy trên Local Server.`, 'error');
+                    console.error(err);
+                }
+            }
+        }
+
+        async function saveToOriginalFiles() {
+            let totalFiles = Object.keys(fileHandles).length;
+            if(totalFiles === 0) return;
+
+            let successCount = 0;
+
+            for (const fName in fileHandles) {
+                try {
+                    const handle = fileHandles[fName];
+                    const writable = await handle.createWritable();
+                    const dataToSave = JSON.stringify({ questions: allData[fName] }, null, 2);
+                    await writable.write(dataToSave);
+                    await writable.close();
+                    successCount++;
+                } catch (err) {
+                    showToast(`Lỗi khi lưu đè file ${fName}!`, 'error');
+                    console.error(err);
+                }
+            }
+
+            if (successCount === totalFiles) {
+                showToast(`Đã lưu đè thành công ${successCount} files gốc!`, 'success');
+            }
+        }
+
+        function applyFilter(filterType) {
+            currentFilter = filterType;
+            updateStatsAndRender();
+        }
+
+        function updateStatsAndRender() {
+            const container = document.getElementById('container');
+            container.innerHTML = "";
+            
+            let totalFiles = Object.keys(allData).length;
+            let totalQs = 0;
+            let totalMissingOpts = 0;
+            let totalMissingAns = 0;
+
+            Object.keys(allData).forEach(fileName => {
+                const questions = allData[fileName];
+                totalQs += questions.length;
+
+                let displayQuestions = [];
+                
+                questions.forEach((q, qIdx) => {
+                    q.options = q.options || ["", "", "", ""];
+                    while(q.options.length < 4) q.options.push("");
+
+                    const hasMissingOpt = q.options.some(opt => !opt || opt.trim() === "");
+                    const hasMissingAns = !q.answer || q.answer.trim() === "";
+
+                    if (hasMissingOpt) totalMissingOpts++;
+                    if (hasMissingAns) totalMissingAns++;
+
+                    let shouldShow = false;
+                    if (currentFilter === 'all') shouldShow = true;
+                    if (currentFilter === 'missing_opt' && hasMissingOpt) shouldShow = true;
+                    if (currentFilter === 'missing_ans' && hasMissingAns) shouldShow = true;
+
+                    if (shouldShow) {
+                        displayQuestions.push({ data: q, originalIdx: qIdx, hasMissingOpt, hasMissingAns });
+                    }
+                });
+
+                if (displayQuestions.length > 0) {
+                    renderFileSection(container, fileName, displayQuestions, questions.length);
+                }
+            });
+
+            document.getElementById('statFiles').innerText = totalFiles;
+            document.getElementById('statQs').innerText = totalQs;
+            document.getElementById('statMissingOpts').innerText = totalMissingOpts;
+            document.getElementById('statMissingAns').innerText = totalMissingAns;
+
+            if(container.innerHTML === "") {
+                container.innerHTML = `
+                    <div class="text-center py-16 bg-white border border-slate-200 rounded-xl text-slate-500">
+                        <p class="text-lg font-medium">Tuyệt vời! Không có câu hỏi nào khớp với bộ lọc này.</p>
+                    </div>`;
+            }
+        }
+
+        function renderFileSection(container, fileName, displayQuestions, totalInFile) {
+            const section = document.createElement('div');
+            section.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden";
+            
+            const header = document.createElement('div');
+            header.className = "bg-slate-800 text-white px-5 py-3 flex justify-between items-center sticky top-[72px] z-40";
+            header.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>
+                    <span class="font-semibold tracking-wide">${fileName}</span>
+                </div>
+                <span class="bg-slate-700 px-3 py-1 rounded-full text-xs font-medium border border-slate-600">Hiển thị ${displayQuestions.length} / ${totalInFile} câu</span>
+            `;
+            
+            const listContent = document.createElement('div');
+            listContent.className = "p-5 space-y-6";
+
+            displayQuestions.forEach(item => {
+                const q = item.data;
+                const qIdx = item.originalIdx;
+                const card = document.createElement('div');
+                card.className = "p-5 border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all duration-300 bg-slate-50/50 relative group";
+                
+                let badges = `<span class="absolute -top-3 left-4 bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-xs font-bold border border-slate-300">Câu ${qIdx + 1}</span>`;
+                if(item.hasMissingOpt) badges += `<span class="absolute -top-3 right-4 bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs font-bold border border-red-200 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> Thiếu phương án</span>`;
+                else if(item.hasMissingAns) badges += `<span class="absolute -top-3 right-4 bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-bold border border-orange-200 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Chưa chọn đáp án</span>`;
+
+                let optionsHtml = "";
+                ['A', 'B', 'C', 'D'].forEach((label, oIdx) => {
+                    const val = q.options[oIdx] || "";
+                    const safeAnswer = (q.answer || "").trim();
+                    const isCorrect = safeAnswer !== "" && (safeAnswer.startsWith(label + ".") || safeAnswer === val || safeAnswer.startsWith(label));
+                    const isMissing = val.trim() === "";
+
+                    optionsHtml += `
+                        <div class="flex items-center gap-3 p-2.5 border rounded-lg option-item bg-white ${isCorrect ? 'is-answer shadow-sm' : ''} ${isMissing ? 'missing-opt' : 'border-slate-200'}">
+                            <div class="w-8 h-8 flex items-center justify-center rounded-md ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'} font-bold text-sm shrink-0">
+                                ${label}
+                            </div>
+                            <input type="text" value="${val.replace(/"/g, '&quot;')}" 
+                                placeholder="Nhập nội dung phương án ${label}..."
+                                onchange="updateVal('${fileName}', ${qIdx}, ${oIdx}, this.value)"
+                                class="flex-1 bg-transparent border-none outline-none text-slate-700 text-sm placeholder-slate-300">
+                            <button onclick="setAns('${fileName}', ${qIdx}, ${oIdx})" title="Đặt làm đáp án đúng" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${isCorrect ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-indigo-600'}">
+                                ${isCorrect ? '✓ Đúng' : 'Chọn'}
+                            </button>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    ${badges}
+                    <div class="mb-5 mt-2">
+                        <textarea oninput="autoResize(this)" onchange="updateQ('${fileName}', ${qIdx}, this.value)" class="w-full font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none textarea-auto p-1 transition-colors leading-relaxed" placeholder="Nội dung câu hỏi...">${q.question}</textarea>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${optionsHtml}</div>
+                `;
+                
+                setTimeout(() => {
+                    const txt = card.querySelector('textarea');
+                    if(txt) autoResize(txt);
+                }, 0);
+
+                listContent.appendChild(card);
+            });
+
+            section.appendChild(header);
+            section.appendChild(listContent);
+            container.appendChild(section);
+        }
+
+        function updateVal(fName, qIdx, oIdx, val) {
+            allData[fName][qIdx].options[oIdx] = val;
+            updateStatsAndRender(); 
+        }
+
+        function updateQ(fName, qIdx, val) {
+            allData[fName][qIdx].question = val;
+        }
+
+        function setAns(fName, qIdx, oIdx) {
+            const label = ['A', 'B', 'C', 'D'][oIdx];
+            let content = allData[fName][qIdx].options[oIdx] || "";
+            
+            if(content.startsWith(label + ".") || content.startsWith(label + " .")) {
+                allData[fName][qIdx].answer = content;
+            } else {
+                allData[fName][qIdx].answer = `${label}. ${content}`;
+            }
+            
+            updateStatsAndRender();
+        }
+    </script>
+</body>
+</html>
