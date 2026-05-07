@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 
 interface Question {
     question: string;
@@ -235,7 +236,7 @@ const Quiz = () => {
                         disabled={isSubmitting || answeredCount === 0}
                         style={{ fontSize: '1.25rem', padding: '1rem 4rem' }}
                     >
-                        {isSubmitting ? 'Đang Xử Lý...' : 'NỘP BÀI THI'}
+                        {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Đang Xử Lý...</> : 'NỘP BÀI THI'}
                     </button>
                     {answeredCount > 0 && answeredCount < quizData.questions.length && (
                         <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>

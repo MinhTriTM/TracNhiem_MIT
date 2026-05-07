@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { BookOpen, GraduationCap, Map, Mail, Phone, MapPin, Shield, HelpCircle, FileText } from 'lucide-react';
+import { GraduationCap, Mail, Phone, MapPin, Shield, HelpCircle, FileText } from 'lucide-react';
 import Home from './pages/Home';
 import SubjectDetails from './pages/SubjectDetails';
 import Quiz from './pages/Quiz';
